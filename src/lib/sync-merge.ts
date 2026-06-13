@@ -14,7 +14,8 @@ const STATUS_RANK: Record<ApplicationStatus, number> = {
   VIEWED: 1,
   ACCEPTED: 2,
   DECLINED: 2,
-  LEASE_SIGNED: 3,
+  INTERVIEW_SCHEDULED: 3,
+  LEASE_SIGNED: 4,
 };
 
 function mergeById<T extends { id: string }>(a: T[], b: T[]): T[] {
