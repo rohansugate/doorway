@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useDoorwayStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 const landlordNav = [
@@ -45,6 +46,19 @@ const landlordNav = [
 
 export function LandlordShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const notifications = useDoorwayStore((s) => s.notifications);
+  const applications = useDoorwayStore((s) => s.applications);
+  const showings = useDoorwayStore((s) => s.showings);
+
+  const unreadMessages = notifications.filter((n) => n.conversationId && !n.read).length;
+  const pendingApps = applications.filter((a) => !["DECLINED", "LEASE_SIGNED"].includes(a.status)).length;
+  const pendingShowings = showings.filter((s) => s.status === "REQUESTED").length;
+
+  const badges: Record<string, number> = {
+    "/landlord/applicants": pendingApps + pendingShowings,
+    "/landlord/messages": unreadMessages,
+  };
+
   const hideNav =
     pathname === "/landlord/add" || pathname.startsWith("/landlord/edit");
 
@@ -65,19 +79,27 @@ export function LandlordShell({ children }: { children: React.ReactNode }) {
                 item.href === "/landlord"
                   ? pathname === "/landlord" || pathname === "/landlord/add"
                   : pathname === item.href;
+              const badge = badges[item.href];
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[10px] font-medium transition-colors touch-target",
+                    "relative flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-[10px] font-medium transition-colors touch-target",
                     active
                       ? "bg-muted text-foreground"
                       : "text-muted-foreground hover:text-foreground",
                   )}
                   aria-current={active ? "page" : undefined}
                 >
-                  {item.icon}
+                  <span className="relative">
+                    {item.icon}
+                    {badge ? (
+                      <span className="absolute -right-2 -top-1 flex size-4 items-center justify-center rounded-full bg-foreground text-[9px] font-bold text-background">
+                        {badge > 9 ? "9+" : badge}
+                      </span>
+                    ) : null}
+                  </span>
                   <span>{item.label}</span>
                 </Link>
               );

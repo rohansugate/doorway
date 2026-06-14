@@ -19,7 +19,7 @@ export default function LandlordApplicantsPage() {
   const acceptShowing = useDoorwayStore((s) => s.acceptShowing);
   const declineShowing = useDoorwayStore((s) => s.declineShowing);
   const updateApplicationStatus = useDoorwayStore((s) => s.updateApplicationStatus);
-  const [message, setMessage] = useState("");
+  const [showingMessages, setShowingMessages] = useState<Record<string, string>>({});
 
   const landlordListingIds = useMemo(
     () => new Set(listings.filter((l) => l.landlordId === mockLandlord.id).map((l) => l.id)),
@@ -54,10 +54,36 @@ export default function LandlordApplicantsPage() {
                     <Badge variant="outline" className="mt-2">{s.status}</Badge>
                     {s.status === "REQUESTED" && (
                       <div className="mt-3 flex flex-col gap-2">
-                        <Input label={t(locale, "landlordMessage")} value={message} onChange={(e) => setMessage(e.target.value)} />
+                        <Input
+                          label={t(locale, "landlordMessage")}
+                          value={showingMessages[s.id] ?? ""}
+                          onChange={(e) =>
+                            setShowingMessages((prev) => ({ ...prev, [s.id]: e.target.value }))
+                          }
+                        />
                         <div className="flex gap-2">
-                          <Button variant="primary" size="sm" className="flex-1" onClick={() => { acceptShowing(s.id, message); setMessage(""); }}>{t(locale, "accept")}</Button>
-                          <Button variant="destructive" size="sm" className="flex-1" onClick={() => { declineShowing(s.id, message); setMessage(""); }}>{t(locale, "decline")}</Button>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => {
+                              acceptShowing(s.id, showingMessages[s.id]);
+                              setShowingMessages((prev) => ({ ...prev, [s.id]: "" }));
+                            }}
+                          >
+                            {t(locale, "accept")}
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => {
+                              declineShowing(s.id, showingMessages[s.id]);
+                              setShowingMessages((prev) => ({ ...prev, [s.id]: "" }));
+                            }}
+                          >
+                            {t(locale, "decline")}
+                          </Button>
                         </div>
                       </div>
                     )}
@@ -101,7 +127,7 @@ export default function LandlordApplicantsPage() {
                       )}
                       {app.status === "ACCEPTED" && (
                         <>
-                          <Link href="/landlord/messages">
+                          <Link href={`/landlord/messages?conversationId=convo-${app.id}`}>
                             <Button variant="outline" size="sm">Message tenant</Button>
                           </Link>
                           <Button variant="primary" size="sm" onClick={() => updateApplicationStatus(app.id, "LEASE_SIGNED")}>Lease signed</Button>

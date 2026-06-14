@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Playfair_Display } from "next/font/google";
 import { A11yProvider } from "@/components/layout/a11y-provider";
 import { DemoSyncProvider } from "@/components/layout/demo-sync-provider";
+import { HydrationGate } from "@/components/layout/hydration-gate";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import "./globals.css";
 
@@ -45,7 +46,9 @@ export default function RootLayout({
       <body className="min-h-full antialiased">
         <ThemeProvider>
           <DemoSyncProvider>
-            <A11yProvider>{children}</A11yProvider>
+            <HydrationGate>
+              <A11yProvider>{children}</A11yProvider>
+            </HydrationGate>
           </DemoSyncProvider>
         </ThemeProvider>
       </body>

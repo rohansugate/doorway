@@ -37,7 +37,7 @@ export default function DiscoverPage() {
     <AppShell>
       <DoorwayHeader subtitle={`Section 8 near ${zip}`} />
       <SyncStatusBadge />
-      <RoleSwitcher />
+      <RoleSwitcher compact />
 
       <div className="flex flex-1 flex-col px-5 pb-2">
         <div className="mb-3 flex items-center justify-between">

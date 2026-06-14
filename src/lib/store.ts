@@ -282,10 +282,16 @@ export const useDoorwayStore = create<DoorwayState>()(
       completeOnboarding: () => {
         const { constraints, listings, likedListings, matches, discoverFilters } = get();
         const activeConstraints = constraints ?? defaultConstraints;
+        const filters: DiscoverFilters = {
+          maxRent: activeConstraints.maxRent,
+          groundFloorOnly: activeConstraints.accessibilityNeeds,
+          neighborhood: discoverFilters.neighborhood,
+        };
         set({
           onboardingComplete: true,
           constraints: activeConstraints,
-          deck: buildDeck(listings, activeConstraints, likedListings, matches, discoverFilters),
+          discoverFilters: filters,
+          deck: buildDeck(listings, activeConstraints, likedListings, matches, filters),
         });
       },
 

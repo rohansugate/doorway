@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { DoorwayHeader } from "@/components/layout/doorway-header";
 import { t } from "@/lib/i18n";
@@ -21,13 +22,42 @@ const roles: { role: UserRole; title: string; description: string; href: string 
   },
 ];
 
+function startTenantDemo(router: ReturnType<typeof useRouter>) {
+  const store = useDoorwayStore.getState();
+  store.setRole("SEEKER");
+  store.setConstraints({
+    housingSituation: "SHELTER",
+    voucherStatus: "HAS_VOUCHER",
+    zipCode: "90011",
+    voucherSize: 2,
+    maxRent: 1600,
+    accessibilityNeeds: false,
+    proximityNeeds: ["LA Metro", "Clinic nearby"],
+  });
+  store.completeOnboarding();
+  router.push("/discover");
+}
+
+function startLandlordDemo(router: ReturnType<typeof useRouter>) {
+  useDoorwayStore.getState().setRole("LANDLORD");
+  router.push("/landlord/applicants");
+}
+
 export default function HomePage() {
   const router = useRouter();
-  const { setRole, onboardingComplete, locale } = useDoorwayStore();
+  const { setRole, onboardingComplete, locale, role } = useDoorwayStore();
 
-  const handleRoleSelect = (role: UserRole, href: string) => {
-    setRole(role);
+  useEffect(() => {
     if (role === "SEEKER" && onboardingComplete) {
+      router.replace("/discover");
+    } else if (role === "LANDLORD") {
+      router.replace("/landlord");
+    }
+  }, [role, onboardingComplete, router]);
+
+  const handleRoleSelect = (selectedRole: UserRole, href: string) => {
+    setRole(selectedRole);
+    if (selectedRole === "SEEKER" && onboardingComplete) {
       router.push("/discover");
     } else {
       router.push(href);
@@ -43,7 +73,7 @@ export default function HomePage() {
         <p className="mt-2 text-sm text-muted-foreground">{t(locale, "vsCompetitor")}</p>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 px-6 pb-8">
+      <div className="flex flex-1 flex-col gap-3 px-6 pb-4">
         {roles.map((item) => (
           <button
             key={item.role}
@@ -57,28 +87,28 @@ export default function HomePage() {
         ))}
       </div>
 
-      <footer className="px-6 pb-8 text-center text-xs text-muted-foreground">
+      <div className="flex flex-col gap-2 px-6 pb-8">
+        <p className="text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Quick demo
+        </p>
         <button
           type="button"
-          className="underline hover:text-foreground"
-          onClick={() => {
-            setRole("SEEKER");
-            useDoorwayStore.getState().setConstraints({
-              housingSituation: "SHELTER",
-              voucherStatus: "HAS_VOUCHER",
-              zipCode: "90011",
-              voucherSize: 2,
-              maxRent: 1600,
-              accessibilityNeeds: false,
-              proximityNeeds: ["LA Metro", "Clinic nearby"],
-            });
-            useDoorwayStore.getState().completeOnboarding();
-            router.push("/discover");
-          }}
+          onClick={() => startTenantDemo(router)}
+          className="rounded-2xl bg-foreground px-4 py-3.5 text-sm font-medium text-background transition-opacity hover:opacity-90"
         >
-          Demo: skip to swipe deck
+          Demo as tenant — swipe homes
         </button>
-      </footer>
+        <button
+          type="button"
+          onClick={() => startLandlordDemo(router)}
+          className="rounded-2xl border border-border bg-card px-4 py-3.5 text-sm font-medium transition-colors hover:border-foreground/30"
+        >
+          Demo as landlord — review applications
+        </button>
+        <p className="pt-1 text-center text-xs text-muted-foreground">
+          Two-phone demo: open the same URL on both devices
+        </p>
+      </div>
     </div>
   );
 }

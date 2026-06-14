@@ -8,6 +8,7 @@ export interface SyncStatus {
   storage: SyncStorage;
   ready: boolean;
   lastPulledAt: string | null;
+  syncing?: boolean;
 }
 
 export function buildSyncPayload(state: {

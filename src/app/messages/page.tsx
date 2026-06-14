@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { DoorwayHeader } from "@/components/layout/doorway-header";
 import { RoleSwitcher } from "@/components/layout/role-switcher";
@@ -10,7 +11,9 @@ export default function MessagesPage() {
     <AppShell>
       <DoorwayHeader subtitle="Messages" />
       <RoleSwitcher compact />
-      <MessagesPanel role="SEEKER" />
+      <Suspense fallback={<p className="px-5 text-sm text-muted-foreground">Loading messages…</p>}>
+        <MessagesPanel role="SEEKER" />
+      </Suspense>
     </AppShell>
   );
 }

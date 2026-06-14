@@ -15,6 +15,8 @@ import { formatCurrency } from "@/lib/utils";
 
 export default function LandlordPage() {
   const listings = useDoorwayStore((s) => s.listings);
+  const applications = useDoorwayStore((s) => s.applications);
+  const showings = useDoorwayStore((s) => s.showings);
   const deactivateListing = useDoorwayStore((s) => s.deactivateListing);
   const publishListing = useDoorwayStore((s) => s.publishListing);
 
@@ -22,6 +24,19 @@ export default function LandlordPage() {
     () => listings.filter((l) => l.landlordId === mockLandlord.id),
     [listings],
   );
+
+  const landlordListingIds = useMemo(
+    () => new Set(landlordListings.map((l) => l.id)),
+    [landlordListings],
+  );
+
+  const pendingApplicants = applications.filter(
+    (a) => landlordListingIds.has(a.listingId) && !["DECLINED", "LEASE_SIGNED"].includes(a.status),
+  ).length;
+
+  const pendingShowings = showings.filter(
+    (s) => landlordListingIds.has(s.listingId) && s.status === "REQUESTED",
+  ).length;
 
   const active = landlordListings.filter((l) => l.status === "ACTIVE");
   const drafts = landlordListings.filter((l) => l.status === "DRAFT");
@@ -51,10 +66,16 @@ export default function LandlordPage() {
           <p className="text-sm text-muted-foreground">Drafts</p>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold">0</p>
+          <p className="text-2xl font-bold">{pendingApplicants}</p>
           <p className="text-sm text-muted-foreground">Applicants</p>
         </div>
       </div>
+
+      {pendingShowings > 0 && (
+        <p className="mx-5 text-sm text-muted-foreground">
+          {pendingShowings} showing request{pendingShowings === 1 ? "" : "s"} waiting — check Applications
+        </p>
+      )}
 
       <div className="px-5 pt-5">
         <Link href="/landlord/add">

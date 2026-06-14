@@ -1,51 +1,67 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { buildSyncPayload, pullDemoSync, pushDemoSync } from "@/lib/demo-sync";
 import { useDoorwayStore } from "@/lib/store";
 
-const POLL_MS = 2500;
+const POLL_MS = 1000;
 
 export function DemoSyncProvider({ children }: { children: React.ReactNode }) {
-  const hydrated = useRef(false);
   const pushing = useRef(false);
   const setSyncStatus = useDoorwayStore((s) => s.setSyncStatus);
+
+  const pull = useCallback(async () => {
+    const remote = await pullDemoSync();
+    if (!remote) {
+      setSyncStatus({
+        storage: "memory",
+        ready: false,
+        lastPulledAt: new Date().toISOString(),
+        syncing: false,
+      });
+      return;
+    }
+
+    setSyncStatus({
+      storage: remote.storage,
+      ready: remote.ready,
+      lastPulledAt: new Date().toISOString(),
+      syncing: false,
+    });
+
+    if (!remote.state?.updatedAt) return;
+
+    const localUpdated = useDoorwayStore.getState().lastSyncedAt ?? "";
+    if (remote.state.updatedAt > localUpdated) {
+      useDoorwayStore.getState().applyRemoteSync(remote.state);
+    }
+  }, [setSyncStatus]);
 
   useEffect(() => {
     let cancelled = false;
 
-    const pull = async () => {
-      const remote = await pullDemoSync();
-      if (cancelled || !remote) return;
-
+    const runPull = async () => {
+      if (cancelled) return;
       setSyncStatus({
-        storage: remote.storage,
-        ready: remote.ready,
-        lastPulledAt: new Date().toISOString(),
+        storage: useDoorwayStore.getState().syncStatus?.storage ?? "memory",
+        ready: useDoorwayStore.getState().syncStatus?.ready ?? false,
+        lastPulledAt: useDoorwayStore.getState().syncStatus?.lastPulledAt ?? null,
+        syncing: true,
       });
-
-      if (!remote.state?.updatedAt) return;
-
-      const localUpdated = useDoorwayStore.getState().lastSyncedAt ?? "";
-      if (remote.state.updatedAt > localUpdated) {
-        useDoorwayStore.getState().applyRemoteSync(remote.state);
-      }
+      await pull();
     };
 
-    pull().then(() => {
-      hydrated.current = true;
-    });
-
-    const interval = setInterval(pull, POLL_MS);
+    runPull();
+    const interval = setInterval(runPull, POLL_MS);
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [setSyncStatus]);
+  }, [pull, setSyncStatus]);
 
   useEffect(() => {
     const unsub = useDoorwayStore.subscribe((state, prev) => {
-      if (!hydrated.current || pushing.current) return;
+      if (pushing.current) return;
 
       const changed =
         state.listings !== prev.listings ||
@@ -58,6 +74,13 @@ export function DemoSyncProvider({ children }: { children: React.ReactNode }) {
       if (!changed) return;
 
       pushing.current = true;
+      setSyncStatus({
+        storage: state.syncStatus?.storage ?? "memory",
+        ready: state.syncStatus?.ready ?? false,
+        lastPulledAt: state.syncStatus?.lastPulledAt ?? null,
+        syncing: true,
+      });
+
       const payload = buildSyncPayload({
         listings: state.listings,
         applications: state.applications,
@@ -66,14 +89,17 @@ export function DemoSyncProvider({ children }: { children: React.ReactNode }) {
         messages: state.messages,
         notifications: state.notifications,
       });
-      pushDemoSync(payload).finally(() => {
-        useDoorwayStore.setState({ lastSyncedAt: payload.updatedAt });
-        pushing.current = false;
-      });
+
+      pushDemoSync(payload)
+        .finally(async () => {
+          useDoorwayStore.setState({ lastSyncedAt: payload.updatedAt });
+          pushing.current = false;
+          await pull();
+        });
     });
 
     return unsub;
-  }, []);
+  }, [pull, setSyncStatus]);
 
   return children;
 }

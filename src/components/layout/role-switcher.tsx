@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { mockLandlord } from "@/lib/mock-data";
 import { useDoorwayStore } from "@/lib/store";
@@ -8,24 +8,42 @@ import type { UserRole } from "@/lib/types";
 
 const ROLE_CONFIG: Record<
   "SEEKER" | "LANDLORD",
-  { label: string; other: string; otherRole: UserRole; href: string }
+  { label: string; other: string; otherRole: UserRole; defaultHref: string }
 > = {
   SEEKER: {
     label: "Tenant",
     other: "Landlord",
     otherRole: "LANDLORD",
-    href: "/landlord",
+    defaultHref: "/landlord",
   },
   LANDLORD: {
     label: "Landlord",
     other: "Tenant",
     otherRole: "SEEKER",
-    href: "/discover",
+    defaultHref: "/discover",
   },
 };
 
+const PARALLEL_ROUTES: Record<string, { SEEKER: string; LANDLORD: string }> = {
+  "/discover": { SEEKER: "/discover", LANDLORD: "/landlord" },
+  "/matches": { SEEKER: "/matches", LANDLORD: "/landlord/applicants" },
+  "/messages": { SEEKER: "/messages", LANDLORD: "/landlord/messages" },
+  "/profile": { SEEKER: "/profile", LANDLORD: "/landlord/profile" },
+  "/landlord": { SEEKER: "/discover", LANDLORD: "/landlord" },
+  "/landlord/applicants": { SEEKER: "/matches", LANDLORD: "/landlord/applicants" },
+  "/landlord/messages": { SEEKER: "/messages", LANDLORD: "/landlord/messages" },
+  "/landlord/profile": { SEEKER: "/profile", LANDLORD: "/landlord/profile" },
+};
+
+function targetHref(pathname: string, nextRole: "SEEKER" | "LANDLORD"): string {
+  const map = PARALLEL_ROUTES[pathname];
+  if (map) return map[nextRole];
+  return ROLE_CONFIG[nextRole].defaultHref;
+}
+
 export function RoleSwitcher({ compact }: { compact?: boolean }) {
   const router = useRouter();
+  const pathname = usePathname();
   const role = useDoorwayStore((s) => s.role);
   const setRole = useDoorwayStore((s) => s.setRole);
 
@@ -34,8 +52,9 @@ export function RoleSwitcher({ compact }: { compact?: boolean }) {
   const config = ROLE_CONFIG[role];
 
   const switchRole = () => {
-    setRole(config.otherRole);
-    router.push(config.href);
+    const nextRole = config.otherRole as "SEEKER" | "LANDLORD";
+    setRole(nextRole);
+    router.push(targetHref(pathname, nextRole));
   };
 
   if (compact) {
@@ -43,7 +62,7 @@ export function RoleSwitcher({ compact }: { compact?: boolean }) {
       <button
         type="button"
         onClick={switchRole}
-        className="rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+        className="mx-5 mb-3 self-start rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
       >
         Switch to {config.other}
       </button>
@@ -51,30 +70,19 @@ export function RoleSwitcher({ compact }: { compact?: boolean }) {
   }
 
   return (
-    <div className="mx-5 mb-4 rounded-2xl border border-border bg-surface px-4 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Demo mode
-          </p>
-          <p className="text-sm">
-            Viewing as <span className="font-semibold">{config.label}</span>
-            {role === "LANDLORD" && (
-              <span className="text-muted-foreground">
-                {" "}
-                · {mockLandlord.firstName} {mockLandlord.lastName}
-              </span>
-            )}
-          </p>
-        </div>
-        <Button variant="outline" size="sm" className="shrink-0 rounded-full" onClick={switchRole}>
-          {config.other} view
-        </Button>
-      </div>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Same data on both sides. On Vercel, open the same deployment URL on two phones — listings,
-        applications, and messages sync automatically.
+    <div className="mx-5 mb-3 flex items-center justify-between rounded-2xl border border-border bg-surface px-4 py-3">
+      <p className="text-sm">
+        Viewing as <span className="font-semibold">{config.label}</span>
+        {role === "LANDLORD" && (
+          <span className="text-muted-foreground">
+            {" "}
+            · {mockLandlord.firstName} {mockLandlord.lastName}
+          </span>
+        )}
       </p>
+      <Button variant="outline" size="sm" className="shrink-0 rounded-full" onClick={switchRole}>
+        {config.other} view
+      </Button>
     </div>
   );
 }

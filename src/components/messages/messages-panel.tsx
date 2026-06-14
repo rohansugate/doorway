@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { mockLandlord, mockSeeker } from "@/lib/mock-data";
@@ -12,8 +14,10 @@ interface MessagesPanelProps {
 }
 
 export function MessagesPanel({ role }: MessagesPanelProps) {
+  const searchParams = useSearchParams();
   const conversations = useDoorwayStore((s) => s.conversations);
   const messages = useDoorwayStore((s) => s.messages);
+  const notifications = useDoorwayStore((s) => s.notifications);
   const listings = useDoorwayStore((s) => s.listings);
   const sendMessage = useDoorwayStore((s) => s.sendMessage);
   const markConversationRead = useDoorwayStore((s) => s.markConversationRead);
@@ -25,6 +29,16 @@ export function MessagesPanel({ role }: MessagesPanelProps) {
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const threadEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("conversationId");
+    if (fromUrl && myConversations.some((c) => c.id === fromUrl)) {
+      setActiveId(fromUrl);
+      markConversationRead(fromUrl, role);
+    }
+  }, [searchParams, myConversations, role, markConversationRead]);
 
   const active = myConversations.find((c) => c.id === activeId);
   const thread = active
@@ -33,15 +47,24 @@ export function MessagesPanel({ role }: MessagesPanelProps) {
         .sort((a, b) => a.sentAt.localeCompare(b.sentAt))
     : [];
 
+  useEffect(() => {
+    threadEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [thread.length, activeId]);
+
+  const unreadFor = (conversationId: string) =>
+    notifications.some((n) => n.conversationId === conversationId && !n.read);
+
   const openConversation = (convo: Conversation) => {
     setActiveId(convo.id);
     markConversationRead(convo.id, role);
   };
 
-  const handleSend = () => {
-    if (!active || !draft.trim()) return;
+  const handleSend = async () => {
+    if (!active || !draft.trim() || sending) return;
+    setSending(true);
     sendMessage(active.id, draft.trim(), role);
     setDraft("");
+    setSending(false);
   };
 
   if (active) {
@@ -68,7 +91,7 @@ export function MessagesPanel({ role }: MessagesPanelProps) {
         >
           {thread.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground">
-              Say hello — messaging is open because the application was accepted.
+              Say hello — messaging opens after an application is accepted.
             </p>
           ) : (
             thread.map((msg) => {
@@ -88,6 +111,7 @@ export function MessagesPanel({ role }: MessagesPanelProps) {
               );
             })
           )}
+          <div ref={threadEndRef} />
         </div>
 
         <div className="mt-3 flex gap-2">
@@ -102,10 +126,10 @@ export function MessagesPanel({ role }: MessagesPanelProps) {
             variant="primary"
             size="md"
             className="mt-6 shrink-0 rounded-full"
-            disabled={!draft.trim()}
+            disabled={!draft.trim() || sending}
             onClick={handleSend}
           >
-            Send
+            {sending ? "…" : "Send"}
           </Button>
         </div>
       </div>
@@ -120,8 +144,16 @@ export function MessagesPanel({ role }: MessagesPanelProps) {
           <p className="mt-2 text-sm text-muted-foreground">
             {role === "SEEKER"
               ? "After a landlord accepts your application, you can message them here."
-              : "When you accept an application, a chat opens so you can coordinate with the tenant."}
+              : "Accept an application to open a chat with the tenant."}
           </p>
+          {role === "LANDLORD" && (
+            <Link
+              href="/landlord/applicants"
+              className="mt-4 rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background"
+            >
+              Go to Applications
+            </Link>
+          )}
         </div>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -131,6 +163,7 @@ export function MessagesPanel({ role }: MessagesPanelProps) {
               .filter((m) => m.conversationId === convo.id)
               .sort((a, b) => b.sentAt.localeCompare(a.sentAt))[0];
             const otherName = role === "SEEKER" ? convo.landlordName : convo.seekerName;
+            const unread = unreadFor(convo.id);
 
             return (
               <li key={convo.id}>
@@ -141,7 +174,12 @@ export function MessagesPanel({ role }: MessagesPanelProps) {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="font-medium">{otherName}</p>
-                    <span className="text-xs text-muted-foreground">Chat</span>
+                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      {unread && (
+                        <span className="size-2 rounded-full bg-sky-500" aria-label="Unread" />
+                      )}
+                      Chat
+                    </span>
                   </div>
                   <p className="text-sm text-muted-foreground">
                     {listing?.title ?? convo.listingTitle}
