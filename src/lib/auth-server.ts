@@ -65,7 +65,36 @@ function mapAuthError(message: string): string {
   if (lower.includes("email not confirmed")) {
     return "Confirm your email before signing in.";
   }
+  if (lower.includes("password")) {
+    return message;
+  }
   return message;
+}
+
+function validatePassword(password: string, forSignup = false): string | null {
+  if (!password || password.trim().length === 0) {
+    return "Password is required.";
+  }
+  if (forSignup && password.length < 6) {
+    return "Password must be at least 6 characters.";
+  }
+  return null;
+}
+
+/** Sign in after signup to verify Supabase saved the password and set session cookies. */
+async function establishPasswordSession(
+  email: string,
+  password: string,
+): Promise<{ error: string } | null> {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({
+    email: normalizeEmail(email),
+    password,
+  });
+  if (error) {
+    return { error: mapAuthError(error.message) };
+  }
+  return null;
 }
 
 async function fetchProfile(userId: string) {
@@ -165,9 +194,11 @@ export async function createUser(input: {
     return { error: "An account with this email already exists. Log in instead." };
   }
 
-  if (input.password.length < 6) {
-    return { error: "Password must be at least 6 characters." };
+  const passwordError = validatePassword(input.password, true);
+  if (passwordError) {
+    return { error: passwordError };
   }
+
   if (!input.firstName.trim() || !input.lastName.trim()) {
     return { error: "First and last name are required." };
   }
@@ -183,34 +214,45 @@ export async function createUser(input: {
 
   let userId: string | null = null;
 
-  if (hasServiceRole()) {
-    const admin = createAdminClient();
-    const { data: authData, error: authError } = await admin.auth.admin.createUser({
-      email,
-      password: input.password,
-      email_confirm: true,
-      user_metadata: metadata,
-    });
-    if (authError || !authData.user) {
+  // Passwords are hashed and stored by Supabase Auth in auth.users (never in profiles).
+  const supabase = await createClient();
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email,
+    password: input.password,
+    options: { data: metadata },
+  });
+
+  if (authError || !authData.user) {
+    if (hasServiceRole()) {
+      const admin = createAdminClient();
+      const { data: adminData, error: adminError } = await admin.auth.admin.createUser({
+        email,
+        password: input.password,
+        email_confirm: true,
+        user_metadata: metadata,
+      });
+      if (adminError || !adminData.user) {
+        return { error: mapAuthError(adminError?.message ?? authError?.message ?? "Could not create account.") };
+      }
+      userId = adminData.user.id;
+    } else {
       return { error: mapAuthError(authError?.message ?? "Could not create account.") };
     }
-    userId = authData.user.id;
   } else {
-    const supabase = await createClient();
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password: input.password,
-      options: { data: metadata },
-    });
-    if (authError || !authData.user) {
-      return { error: mapAuthError(authError?.message ?? "Could not create account.") };
-    }
     userId = authData.user.id;
   }
 
   const { data: profile } = await fetchProfileWithAdmin(userId);
   if (!profile) {
     return { error: "Account was created but not verified in Doorway. Try logging in." };
+  }
+
+  const sessionError = await establishPasswordSession(email, input.password);
+  if (sessionError) {
+    return {
+      error:
+        "Account created but password could not be verified. Try logging in with your password.",
+    };
   }
 
   return { user: profileToPublicUser(profile) };
@@ -227,6 +269,11 @@ export async function authenticateUser(
   }
 
   const normalizedEmail = normalizeEmail(email);
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    return { error: passwordError };
+  }
+
   const knownProfile = await lookupProfileByEmail(normalizedEmail);
   if (!knownProfile) {
     return { error: "No account found with this email. Create one first." };
@@ -234,6 +281,7 @@ export async function authenticateUser(
 
   const supabase = await createClient();
 
+  // Supabase Auth checks the password against the hashed value in auth.users.
   const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
     email: normalizedEmail,
     password,

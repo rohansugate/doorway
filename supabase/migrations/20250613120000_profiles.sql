@@ -21,6 +21,7 @@ create policy "Users can view own profile"
   using (auth.uid() = id);
 
 -- Signup trigger copies name + role from signup metadata into profiles (one-time; role is never read from JWT).
+-- Passwords: stored only in auth.users by Supabase Auth (bcrypt). Never add passwords to public.profiles.
 
 create or replace function public.handle_new_user()
 returns trigger

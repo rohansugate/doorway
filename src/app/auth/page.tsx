@@ -183,8 +183,8 @@ export default function AuthPage() {
             : "Join Doorway as a tenant or landlord"}
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          Accounts are verified against Doorway&apos;s database. Each signup picks
-          one role — tenant or landlord.
+          Accounts are verified against Doorway&apos;s database. Passwords are
+          stored securely by Supabase when you sign up.
         </p>
       </div>
 
