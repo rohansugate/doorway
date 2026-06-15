@@ -112,8 +112,8 @@ export function OnboardingForm() {
     housingSituation: "SHELTER",
     voucherStatus: "HAS_VOUCHER",
     zipCode: "90011",
-    voucherSize: 1,
-    maxRent: 1400,
+    voucherSize: 2,
+    maxRent: 1600,
     accessibilityNeeds: false,
     proximityNeeds: [],
   });
@@ -201,7 +201,7 @@ export function OnboardingForm() {
                     onChange={(e) => setForm({ ...form, voucherSize: Number(e.target.value) })}
                     className="mt-2 w-full rounded-2xl border border-border bg-card px-4 py-3.5 text-base outline-none focus:border-foreground"
                   >
-                    {[1, 2, 3, 4].map((n) => (
+                    {[1, 2, 3].map((n) => (
                       <option key={n} value={n}>
                         {n}BR
                       </option>

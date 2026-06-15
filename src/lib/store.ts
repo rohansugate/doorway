@@ -263,7 +263,10 @@ function buildDeck(
   if (filters.neighborhood) {
     filtered = filtered.filter((l) => l.neighborhood === filters.neighborhood);
   }
-  return sortByRelevance(filtered, activeConstraints, likedListings);
+  return sortByRelevance(filtered, activeConstraints, likedListings).slice(
+    0,
+    SEEKER_DECK_SIZE,
+  );
 }
 
 function applyListingsUpdate(
